@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Recordatorios Push Universales</title>
+  
+  <!-- PWA & Mobile Meta Tags -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0284c7">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Recordatorios">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="brand">
+        <div class="brand-icon">⏰</div>
+        <div class="brand-text">
+          <h1>Recordatorios Push</h1>
+          <p>Notificaciones sincronizadas en Windows, Mac, Android e iOS</p>
+        </div>
+      </div>
+      <div id="pwa-install-container" style="display: none;">
+        <button id="btn-install-pwa" class="btn btn-secondary btn-sm">📲 Instalar App</button>
+      </div>
+    </header>
+
+    <!-- Estado del Servidor & Configuración de API -->
+    <div class="server-config-card">
+      <div class="server-info">
+        <span id="server-status-dot" class="status-dot"></span>
+        <span id="server-status-text">Conectando al servidor...</span>
+      </div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <span style="font-size: 0.8rem; color: var(--text-muted);" id="devices-online-text">0 dispositivos registrados</span>
+        <button id="btn-toggle-config" class="btn btn-secondary btn-sm" title="Configurar URL del servidor">⚙️ Backend</button>
+      </div>
+    </div>
+
+    <!-- Panel plegable para configurar backend (útil si se aloja en GitHub Pages) -->
+    <div id="backend-config-panel" class="card" style="display: none; margin-bottom: 20px;">
+      <h3 style="font-size: 0.95rem; margin-bottom: 8px;">Configuración de Backend (API)</h3>
+      <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px;">
+        Si tienes este frontend en <strong>GitHub Pages</strong>, coloca aquí la URL pública de tu backend gratuito (ej. <code>https://mi-recordatorio.onrender.com</code>). Si ejecutas todo en el mismo servidor, déjalo vacío o usa <code>/</code>.
+      </p>
+      <div style="display: flex; gap: 8px;">
+        <input type="text" id="backend-url-input" class="form-control" placeholder="https://tu-backend.onrender.com">
+        <button id="btn-save-backend" class="btn btn-primary btn-sm">Guardar</button>
+      </div>
+    </div>
+
+    <!-- BOTÓN DESTACADO DE PRUEBA INMEDIATA -->
+    <div class="test-broadcast-card">
+      <h2>🚀 Prueba de Notificación Universal</h2>
+      <p>Presiona el botón para enviar una notificación Web Push instantánea a <strong>todos los dispositivos registrados</strong> (tu PC, teléfono Android, iPhone, etc.).</p>
+      <button id="btn-test-broadcast" class="btn-broadcast">
+        <span>🔔 Enviar Notificación a Todos los Dispositivos</span>
+      </button>
+      <div id="test-result-msg" style="margin-top: 12px; font-size: 0.85rem; color: #a5b4fc; display: none;"></div>
+    </div>
+
+    <!-- Grid: Estado de este dispositivo + Dispositivos Conectados -->
+    <div class="devices-status-grid">
+      <!-- Tarjeta: Este Dispositivo -->
+      <div class="card">
+        <h3>
+          <span>📱 Este Dispositivo</span>
+          <span id="device-type-icon">💻</span>
+        </h3>
+        
+        <div id="device-status-badge" class="device-status-badge badge-pending">
+          <span class="status-dot"></span>
+          <span id="device-status-label">Verificando permisos...</span>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="device-name-input">Nombre de este equipo:</label>
+          <input type="text" id="device-name-input" class="form-control" placeholder="Ej: Mi iPhone 15 / PC Oficina">
+        </div>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button id="btn-subscribe" class="btn btn-primary" style="flex: 1;">
+            Activar Notificaciones
+          </button>
+          <button id="btn-unsubscribe" class="btn btn-secondary" style="display: none;">
+            Desactivar
+          </button>
+        </div>
+      </div>
+
+      <!-- Tarjeta: Lista de Dispositivos Registrados -->
+      <div class="card">
+        <h3>
+          <span>🌐 Dispositivos Registrados</span>
+          <span id="total-devices-count" style="font-size: 0.85rem; color: var(--accent); font-weight: normal;">0 activos</span>
+        </h3>
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px;">
+          Todos estos dispositivos recibirán las alertas programadas y las pruebas:
+        </p>
+        <div id="devices-list" style="max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
+          <div style="color: var(--text-muted); font-size: 0.85rem;">Cargando dispositivos...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Formulario para Crear Recordatorio -->
+    <div class="card" style="margin-bottom: 24px;">
+      <h3>📅 Programar Nuevo Recordatorio</h3>
+      <form id="reminder-form">
+        <div class="form-group">
+          <label for="reminder-title">Título del Recordatorio *</label>
+          <input type="text" id="reminder-title" class="form-control" placeholder="Ej: Tomar medicina / Reunión de equipo" required>
+        </div>
+
+        <div class="form-group">
+          <label for="reminder-body">Mensaje o Detalles (Opcional)</label>
+          <textarea id="reminder-body" class="form-control" rows="2" placeholder="Ej: Revisar los documentos del informe antes de la llamada"></textarea>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
+          <div class="form-group">
+            <label for="reminder-datetime">Fecha y Hora de la Alerta *</label>
+            <input type="datetime-local" id="reminder-datetime" class="form-control" required>
+            <div class="quick-times">
+              <button type="button" class="btn-quick" data-minutes="5">+5 min</button>
+              <button type="button" class="btn-quick" data-minutes="15">+15 min</button>
+              <button type="button" class="btn-quick" data-minutes="60">+1 hora</button>
+              <button type="button" class="btn-quick" id="btn-tomorrow-9am">Mañana 9:00 AM</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="reminder-category">Categoría</label>
+            <select id="reminder-category" class="form-control">
+              <option value="General">🔔 General</option>
+              <option value="Trabajo">💼 Trabajo</option>
+              <option value="Personal">👤 Personal</option>
+              <option value="Salud">💊 Salud / Medicina</option>
+              <option value="Urgente">🚨 Urgente</option>
+            </select>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 8px; padding: 12px;">
+          ➕ Guardar y Programar Alerta en Todos los Dispositivos
+        </button>
+      </form>
+    </div>
+
+    <!-- Listado de Recordatorios -->
+    <div class="card">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="pending">⏰ Pendientes (<span id="count-pending">0</span>)</button>
+        <button class="tab-btn" data-tab="sent">✅ Historial / Enviados (<span id="count-sent">0</span>)</button>
+      </div>
+
+      <div id="reminders-container" class="reminders-list">
+        <!-- Renderizado dinámico desde app.js -->
+      </div>
+    </div>
+
+    <!-- Guía Desplegable para iPhone / iPad y Otros Dispositivos -->
+    <div class="guide-accordion">
+      <div class="guide-header" id="guide-toggle">
+        <span>📖 ¿Cómo recibir notificaciones en iPhone, Android, Mac y Windows?</span>
+        <span id="guide-arrow">▼</span>
+      </div>
+      <div class="guide-content" id="guide-body">
+        <div class="guide-step">
+          <strong>🍎 En iPhone y iPad (iOS 16.4 o superior):</strong><br>
+          Apple exige que la aplicación web se agregue a la pantalla de inicio para habilitar notificaciones push:
+          <ol style="margin-left: 20px; margin-top: 4px;">
+            <li>Abre esta web en <strong>Safari</strong>.</li>
+            <li>Toca el botón <strong>Compartir</strong> (icono de cuadrado con flecha hacia arriba).</li>
+            <li>Selecciona <strong>"Añadir a la pantalla de inicio"</strong>.</li>
+            <li>Abre el icono recién creado en tu pantalla de inicio y pulsa <strong>"Activar Notificaciones"</strong>. ¡Listo!</li>
+          </ol>
+        </div>
+
+        <div class="guide-step">
+          <strong>🤖 En Android (Chrome, Edge, Samsung Internet):</strong><br>
+          Solo ingresa a la web, pulsa "Activar Notificaciones" y dale "Permitir" cuando el navegador lo solicite. Opcionalmente pulsa "Instalar App".
+        </div>
+
+        <div class="guide-step">
+          <strong>💻 En Windows y Mac (Chrome, Edge, Safari, Firefox):</strong><br>
+          Abre la web, presiona "Activar Notificaciones" y concede permisos. En Windows, asegúrate de que el "Asistente de concentración" no bloquee notificaciones. En Mac, verifica en Preferencias del Sistema > Notificaciones > Safari/Chrome.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Toast Notification Flotante -->
+  <div id="toast">Mensaje de notificación</div>
+
+  <script src="app.js"></script>
+</body>
+</html>
